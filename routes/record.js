@@ -4,11 +4,17 @@ const ObjectId = require('mongodb').ObjectId
 const dbo = require('../db/conn')
 
 const authenticateUser = (req, res, next) => {
-    if (req.body.key == "hello") {
-        next()
-    } else {
-        res.send("Key Required")
-    }
+    let connect = dbo.getDb()
+    connect.collection("tokens").findOne({ api_key: req.body.api_key, secret_key: req.body.secret_key }, (err, result) => {
+        if (err) throw err
+        if (result == null) {
+            res.send("Invalid api_key or secret_key")
+        } else {
+            delete req.body.api_key
+            delete req.body.secret_key
+            next()
+        }
+    })
 }
 
 
@@ -16,7 +22,7 @@ recordRouter.route('/').get(function (req, res) {
     res.send("ARHEX API")
 })
 
-recordRouter.route('/user').post((req, response) => {
+recordRouter.route('/user').post(authenticateUser, (req, response) => {
     let connect = dbo.getDb();
     let data = req.body
     connect.collection("users").insertOne(data, (err, res) => {
@@ -35,7 +41,7 @@ recordRouter.route('/user').get(authenticateUser, (req, res) => {
     })
 })
 
-recordRouter.route('/user/:id').get((req, res) => {
+recordRouter.route('/user/:id').get(authenticateUser, (req, res) => {
     let connect = dbo.getDb()
     connect.collection("users").findOne({ _id: ObjectId(req.params.id) }, (err, result) => {
         if (err) throw err
@@ -43,7 +49,7 @@ recordRouter.route('/user/:id').get((req, res) => {
     })
 })
 
-recordRouter.route('/user/:id').delete((req, res) => {
+recordRouter.route('/user/:id').delete(authenticateUser, (req, res) => {
     let connect = dbo.getDb()
     connect.collection("users").deleteOne({ _id: ObjectId(req.params.id) }, (err, response) => {
         if (err) throw err
@@ -51,12 +57,12 @@ recordRouter.route('/user/:id').delete((req, res) => {
     })
 })
 
-recordRouter.route('/user/:id').put((req, res) => {
+recordRouter.route('/user/:id').put(authenticateUser, (req, res) => {
     let connect = dbo.getDb()
     let data = {
         $set: req.body
     }
-    connect.collection("users").updateOne({ _id: ObjectId(req.params.id) }, data, (err, response) => {
+    connect.collection("users").updateOne(authenticateUser, { _id: ObjectId(req.params.id) }, data, (err, response) => {
         if (err) throw err
         res.json(response)
     })
